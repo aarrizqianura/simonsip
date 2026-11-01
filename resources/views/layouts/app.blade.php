@@ -61,13 +61,14 @@
             border-radius: 4px;
         }
         @media print {
-            .no-print { display: none !important; }
+            body, main, .print-unlocked { height: auto !important; overflow: visible !important; }
+            aside, header, footer, .no-print { display: none !important; }
             .print-full { width: 100% !important; margin: 0 !important; padding: 0 !important; }
         }
     </style>
     @stack('styles')
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex" x-data="{ sidebarOpen: false }">
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen overflow-hidden flex" x-data="{ sidebarOpen: false }">
 
     <!-- Sidebar Backdrop for Mobile -->
     <div x-show="sidebarOpen" 
@@ -76,12 +77,12 @@
          class="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden transition-opacity">
     </div>
 
-    <!-- Sidebar Component -->
+    <!-- Sidebar Component: Fixed / Full Height agar tidak ikut ter-scroll -->
     <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
-           class="fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-900 via-slate-900 to-ansari-900 text-white flex flex-col transition-transform duration-300 ease-in-out shadow-2xl">
+           class="fixed lg:static inset-y-0 left-0 z-50 w-72 h-full shrink-0 bg-gradient-to-b from-slate-900 via-slate-900 to-ansari-900 text-white flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl">
         
         <!-- Hospital Branding Header -->
-        <div class="p-6 border-b border-slate-800/80 flex items-center justify-between">
+        <div class="p-6 border-b border-slate-800/80 flex items-center justify-between shrink-0">
             <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
                 <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 font-bold text-xl ring-2 ring-emerald-400/30">
                     <i class="fa-solid fa-hospital-user"></i>
@@ -100,7 +101,7 @@
         </div>
 
         <!-- System Role Indicator -->
-        <div class="px-6 py-3 bg-slate-800/40 border-b border-slate-800/60 flex items-center justify-between text-xs">
+        <div class="px-6 py-3 bg-slate-800/40 border-b border-slate-800/60 flex items-center justify-between text-xs shrink-0">
             <span class="text-slate-400 flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 Mode Akses:
@@ -215,8 +216,8 @@
 
         </div>
 
-        <!-- Sidebar Footer / User Profile -->
-        <div class="p-4 border-t border-slate-800/80 bg-slate-900/80">
+        <!-- Sidebar Footer / User Profile (Selalu tampak di bawah) -->
+        <div class="p-4 border-t border-slate-800/80 bg-slate-900/80 shrink-0">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3 truncate">
                     <div class="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
@@ -229,7 +230,7 @@
                 </div>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" title="Keluar dari Sistem" class="text-slate-400 hover:text-rose-400 p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                    <button type="submit" title="Keluar dari Sistem" class="text-rose-400 hover:text-rose-300 p-2 rounded-lg hover:bg-slate-800 transition-colors shrink-0">
                         <i class="fa-solid fa-arrow-right-from-bracket"></i>
                     </button>
                 </form>
@@ -238,11 +239,11 @@
 
     </aside>
 
-    <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
+    <!-- Main Content Area (Kanan) -->
+    <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         
         <!-- Top Navbar -->
-        <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-4 lg:px-8 py-3.5 flex items-center justify-between shadow-sm">
+        <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-8 py-3.5 flex items-center justify-between shadow-sm shrink-0">
             
             <div class="flex items-center gap-4">
                 <button @click="sidebarOpen = true" class="lg:hidden text-slate-600 hover:text-slate-900 p-1.5 rounded-lg border border-slate-200">
@@ -282,74 +283,76 @@
 
         </header>
 
-        <!-- Flash Messages Alert -->
-        <main class="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
-            
-            @if(session('success'))
-            <div x-data="{ show: true }" x-show="show" x-cloak class="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-start justify-between shadow-sm">
-                <div class="flex items-start gap-3">
-                    <i class="fa-solid fa-circle-check text-emerald-600 text-lg mt-0.5"></i>
+        <!-- Area Konten Utama Kanan: Bisa di-scroll secara mandiri (overflow-y-auto) -->
+        <main class="flex-1 h-full overflow-y-auto overflow-x-hidden flex flex-col">
+            <div class="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+                
+                @if(session('success'))
+                <div x-data="{ show: true }" x-show="show" x-cloak class="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-start justify-between shadow-sm">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-circle-check text-emerald-600 text-lg mt-0.5"></i>
+                        <div>
+                            <div class="font-bold text-sm">Operasi Berhasil</div>
+                            <div class="text-sm mt-0.5">{{ session('success') }}</div>
+                        </div>
+                    </div>
+                    <button @click="show = false" class="text-emerald-500 hover:text-emerald-800"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                @endif
+
+                @if(session('warning'))
+                <div x-data="{ show: true }" x-show="show" x-cloak class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-start justify-between shadow-sm">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-600 text-lg mt-0.5"></i>
+                        <div>
+                            <div class="font-bold text-sm">Perhatian</div>
+                            <div class="text-sm mt-0.5">{{ session('warning') }}</div>
+                        </div>
+                    </div>
+                    <button @click="show = false" class="text-amber-500 hover:text-amber-800"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                @endif
+
+                @if(session('error') || $errors->any())
+                <div x-data="{ show: true }" x-show="show" x-cloak class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start justify-between shadow-sm">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-circle-xmark text-rose-600 text-lg mt-0.5"></i>
+                        <div>
+                            <div class="font-bold text-sm">Terjadi Kesalahan</div>
+                            @if(session('error'))
+                                <div class="text-sm mt-0.5">{{ session('error') }}</div>
+                            @endif
+                            @if($errors->any())
+                                <ul class="list-disc list-inside text-xs mt-1 space-y-0.5 text-rose-700">
+                                    @foreach($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    </div>
+                    <button @click="show = false" class="text-rose-500 hover:text-rose-800"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                @endif
+
+                @yield('content')
+
+            </div>
+
+            <!-- Hospital System Footer -->
+            <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500 mt-auto shrink-0">
+                <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
                     <div>
-                        <div class="font-bold text-sm">Operasi Berhasil</div>
-                        <div class="text-sm mt-0.5">{{ session('success') }}</div>
+                        <strong>SIMONSIP</strong> &copy; {{ date('Y') }} RSUD Dr. H. Moch. Ansari Saleh Banjarmasin. Subbag SDM & SIRS IT.
+                    </div>
+                    <div class="flex items-center gap-3 text-slate-400">
+                        <span>Standar STARKES / KARS</span>
+                        <span>&bull;</span>
+                        <span>Early Warning Gateway</span>
                     </div>
                 </div>
-                <button @click="show = false" class="text-emerald-500 hover:text-emerald-800"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            @endif
-
-            @if(session('warning'))
-            <div x-data="{ show: true }" x-show="show" x-cloak class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-start justify-between shadow-sm">
-                <div class="flex items-start gap-3">
-                    <i class="fa-solid fa-triangle-exclamation text-amber-600 text-lg mt-0.5"></i>
-                    <div>
-                        <div class="font-bold text-sm">Perhatian</div>
-                        <div class="text-sm mt-0.5">{{ session('warning') }}</div>
-                    </div>
-                </div>
-                <button @click="show = false" class="text-amber-500 hover:text-amber-800"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            @endif
-
-            @if(session('error') || $errors->any())
-            <div x-data="{ show: true }" x-show="show" x-cloak class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start justify-between shadow-sm">
-                <div class="flex items-start gap-3">
-                    <i class="fa-solid fa-circle-xmark text-rose-600 text-lg mt-0.5"></i>
-                    <div>
-                        <div class="font-bold text-sm">Terjadi Kesalahan</div>
-                        @if(session('error'))
-                            <div class="text-sm mt-0.5">{{ session('error') }}</div>
-                        @endif
-                        @if($errors->any())
-                            <ul class="list-disc list-inside text-xs mt-1 space-y-0.5 text-rose-700">
-                                @foreach($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        @endif
-                    </div>
-                </div>
-                <button @click="show = false" class="text-rose-500 hover:text-rose-800"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            @endif
-
-            @yield('content')
-
+            </footer>
         </main>
-
-        <!-- Hospital System Footer -->
-        <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500 mt-auto">
-            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-                <div>
-                    <strong>SIMONSIP</strong> &copy; {{ date('Y') }} RSUD Dr. H. Moch. Ansari Saleh Banjarmasin. Subbag SDM & SIRS IT.
-                </div>
-                <div class="flex items-center gap-3 text-slate-400">
-                    <span>Standar STARKES / KARS</span>
-                    <span>&bull;</span>
-                    <span>Early Warning Gateway</span>
-                </div>
-            </div>
-        </footer>
 
     </div>
 
