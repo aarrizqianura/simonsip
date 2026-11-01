@@ -90,7 +90,17 @@ class WhatsAppService
             'status' => $status,
             'phone' => $cleanPhone,
             'message' => $message,
+            'wa_me_url' => $this->generateWaMeUrl($cleanPhone, $message),
         ];
+    }
+
+    /**
+     * Generate direct WhatsApp Click-to-Chat URL (wa.me)
+     */
+    public function generateWaMeUrl(string $phone, string $message): string
+    {
+        $cleanPhone = $this->formatPhoneNumber($phone);
+        return 'https://wa.me/' . $cleanPhone . '?text=' . rawurlencode($message);
     }
 
     /**
@@ -227,15 +237,21 @@ class WhatsAppService
     {
         $dokter = $sipRecord->dokter;
         $tglExp = $sipRecord->tgl_kadaluarsa->translatedFormat('d F Y');
+        $dashboardUrl = url('/dokter/dashboard');
+        $catatan = $sipRecord->catatan_verifikasi ?: 'Berkas SIP telah diperiksa dan dinyatakan sah serta sesuai standar regulasi.';
 
         $message = "🟢 *VERIFIKASI SIP BERHASIL DISETUJUI*\n"
             . "🏥 *RSUD Dr. H. Moch. Ansari Saleh Banjarmasin*\n\n"
             . "Yth. *{$dokter->nama_lengkap}*,\n\n"
-            . "Pengajuan perpanjangan/pembaruan SIP Anda telah selesai diperiksa dan *DISETUJUI* oleh Tim SDM Kepegawaian:\n\n"
+            . "Pengajuan perpanjangan/pembaruan SIP Anda telah selesai diperiksa dan *DISETUJUI* oleh Bagian SDM Kepegawaian:\n\n"
             . "• No. SIP: *{$sipRecord->no_sip}*\n"
             . "• Praktik Ke-: {$sipRecord->tempat_praktik_ke}\n"
             . "• Masa Berlaku Baru s/d: *{$tglExp}*\n"
-            . "• Status Legalitas: 🟢 *Aman / Terverifikasi*\n\n"
+            . "• Status Legalitas: 🟢 *Aman / Aktif Terverifikasi*\n\n"
+            . "📝 *Catatan Verifikator SDM:*\n"
+            . "_{$catatan}_\n\n"
+            . "Lihat status SIP aktif Anda melalui portal SIMONSIP:\n"
+            . "👉 {$dashboardUrl}\n\n"
             . "Terima kasih atas kepatuhan Anda terhadap standar legalitas staf medis RSUD Dr. H. Moch. Ansari Saleh.\n\n"
             . "_SIMONSIP Kepegawaian RSUD Ansari Saleh_";
 

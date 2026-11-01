@@ -44,6 +44,8 @@ Route::middleware('auth')->group(function () {
 
         // Verifikasi SIP (Approval Queue)
         Route::get('/verifikasi-sip', [VerifikasiSipController::class, 'index'])->name('verifikasi.index');
+        Route::get('/verifikasi-sip/{sipRecord}/preview', [VerifikasiSipController::class, 'previewPdf'])->name('verifikasi.preview');
+        Route::get('/verifikasi-sip/{sipRecord}/download', [VerifikasiSipController::class, 'downloadPdf'])->name('verifikasi.download');
         Route::post('/verifikasi-sip/{sipRecord}/approve', [VerifikasiSipController::class, 'approve'])->name('verifikasi.approve');
         Route::post('/verifikasi-sip/{sipRecord}/reject', [VerifikasiSipController::class, 'reject'])->name('verifikasi.reject');
 

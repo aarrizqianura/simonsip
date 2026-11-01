@@ -40,11 +40,17 @@ class DokterPortalController extends Controller
         $allSips = $dokter->sipRecords->sortBy('tempat_praktik_ke');
 
         $pendingSip = $dokter->sipRecords->where('status', 'menunggu_verifikasi')->first();
+        $rejectedSip = $dokter->sipRecords
+            ->where('is_verified', false)
+            ->whereNotNull('verified_at')
+            ->where('status', '!=', 'menunggu_verifikasi')
+            ->sortByDesc('verified_at')
+            ->first();
 
         // Calculate days remaining
         $sisaHari = $primarySip ? $primarySip->sisa_hari : null;
 
-        return view('dokter.dashboard', compact('dokter', 'primarySip', 'allSips', 'pendingSip', 'sisaHari'));
+        return view('dokter.dashboard', compact('dokter', 'primarySip', 'allSips', 'pendingSip', 'rejectedSip', 'sisaHari'));
     }
 
     public function renewal(): View

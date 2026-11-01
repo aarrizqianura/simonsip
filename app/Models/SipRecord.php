@@ -103,10 +103,22 @@ class SipRecord extends Model
     }
 
     /**
+     * Check if this SIP record was reviewed and rejected by SDM
+     */
+    public function getIsRejectedAttribute(): bool
+    {
+        return !$this->is_verified && $this->verified_at !== null && $this->status !== 'menunggu_verifikasi';
+    }
+
+    /**
      * Status Label text in Indonesian
      */
     public function getStatusLabelAttribute(): string
     {
+        if ($this->is_rejected) {
+            return '🔴 Ditolak / Perlu Revisi';
+        }
+
         return match ($this->status) {
             'aktif' => '🟢 Aman',
             'warning' => '🟡 Peringatan (61-90 hari)',
@@ -122,6 +134,10 @@ class SipRecord extends Model
      */
     public function getStatusBadgeClassAttribute(): string
     {
+        if ($this->is_rejected) {
+            return 'bg-rose-50 text-rose-700 border-rose-200 ring-rose-500/20';
+        }
+
         return match ($this->status) {
             'aktif' => 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/20',
             'warning' => 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/20',

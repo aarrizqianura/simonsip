@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\SipRecord;
 use App\Services\WhatsAppService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class VerifikasiSipController extends Controller
 {
@@ -15,7 +18,7 @@ class VerifikasiSipController extends Controller
     {
         $status = $request->query('status', 'menunggu_verifikasi');
 
-        $query = SipRecord::with(['dokter.ksm', 'dokter.spesialisasi', 'verifiedBy']);
+        $query = SipRecord::with(['dokter.ksm', 'dokter.spesialisasi', 'verifiedBy', 'notificationLogs']);
 
         if ($status === 'menunggu_verifikasi') {
             $query->where('status', 'menunggu_verifikasi');
@@ -25,29 +28,97 @@ class VerifikasiSipController extends Controller
 
         $sipRecords = $query->orderByDesc('updated_at')->paginate(10)->withQueryString();
         $pendingCount = SipRecord::where('status', 'menunggu_verifikasi')->count();
+        $approvedCount = SipRecord::whereNotNull('verified_at')->where('is_verified', true)->count();
+        $rejectedCount = SipRecord::whereNotNull('verified_at')->where('is_verified', false)->where('status', '!=', 'menunggu_verifikasi')->count();
 
-        return view('verifikasi.index', compact('sipRecords', 'status', 'pendingCount'));
+        return view('verifikasi.index', compact(
+            'sipRecords',
+            'status',
+            'pendingCount',
+            'approvedCount',
+            'rejectedCount'
+        ));
+    }
+
+    /**
+     * Stream PDF or Image inline for the PDF Preview Modal
+     */
+    public function previewPdf(SipRecord $sipRecord): Response
+    {
+        $sipRecord->load(['dokter.ksm', 'dokter.spesialisasi', 'verifiedBy']);
+
+        $filePath = $sipRecord->file_sip_path;
+        if ($filePath && Storage::disk('public')->exists($filePath) && Storage::disk('public')->size($filePath) > 500) {
+            return Storage::disk('public')->response($filePath);
+        }
+
+        $pdf = Pdf::loadView('verifikasi.sip_pdf_template', compact('sipRecord'))
+            ->setPaper('a4', 'portrait');
+
+        $filename = 'SIP_' . $sipRecord->dokter->nip_nik . '_P' . $sipRecord->tempat_praktik_ke . '.pdf';
+
+        return $pdf->stream($filename);
+    }
+
+    /**
+     * Force download of the SIP PDF document
+     */
+    public function downloadPdf(SipRecord $sipRecord): Response
+    {
+        $sipRecord->load(['dokter.ksm', 'dokter.spesialisasi', 'verifiedBy']);
+
+        $safeDoctorName = preg_replace('/[^A-Za-z0-9_-]/', '_', $sipRecord->dokter->nama_lengkap);
+        $filePath = $sipRecord->file_sip_path;
+
+        if ($filePath && Storage::disk('public')->exists($filePath) && Storage::disk('public')->size($filePath) > 500) {
+            $ext = pathinfo($filePath, PATHINFO_EXTENSION) ?: 'pdf';
+            $downloadName = "SIP_{$safeDoctorName}_Praktik{$sipRecord->tempat_praktik_ke}.{$ext}";
+            return Storage::disk('public')->download($filePath, $downloadName);
+        }
+
+        $pdf = Pdf::loadView('verifikasi.sip_pdf_template', compact('sipRecord'))
+            ->setPaper('a4', 'portrait');
+
+        $downloadName = "SIP_{$safeDoctorName}_Praktik{$sipRecord->tempat_praktik_ke}.pdf";
+
+        return $pdf->download($downloadName);
     }
 
     public function approve(Request $request, SipRecord $sipRecord, WhatsAppService $waService): RedirectResponse
     {
-        $sipRecord->update([
-            'is_verified' => true,
-            'verified_by' => auth()->id(),
-            'verified_at' => Carbon::now(),
-            'catatan_verifikasi' => $request->input('catatan', 'Berkas SIP telah diperiksa dan dinyatakan sah serta sesuai standar regulasi.'),
-        ]);
+        $catatan = trim((string) $request->input('catatan', ''));
+        if ($catatan === '') {
+            $catatan = 'Berkas SIP telah diperiksa dan dinyatakan sah serta sesuai standar regulasi.';
+        }
 
-        // Hitung ulang status (biasanya 🟢 Aman jika baru diperpanjang 5 tahun)
+        $sipRecord->is_verified = true;
+        $sipRecord->verified_by = auth()->id();
+        $sipRecord->verified_at = Carbon::now();
+        $sipRecord->catatan_verifikasi = $catatan;
+        $sipRecord->status = 'aktif';
+        $sipRecord->save();
+
+        // Hitung ulang status sesuai masa berlaku (biasanya 🟢 Aman jika baru diperpanjang 5 tahun)
         $sipRecord->status = $sipRecord->determineStatus();
         $sipRecord->save();
 
         // Kirim WhatsApp notifikasi bahwa verifikasi disetujui
+        $waResult = null;
         if ($sipRecord->dokter && $sipRecord->dokter->no_whatsapp) {
-            $waService->sendVerificationApproved($sipRecord);
+            $waResult = $waService->sendVerificationApproved($sipRecord);
         }
 
-        return redirect()->route('verifikasi.index')->with('success', "Pengajuan SIP No. {$sipRecord->no_sip} milik {$sipRecord->dokter->nama_lengkap} BERHASIL DISETUJUI.");
+        return redirect()->route('verifikasi.index')
+            ->with('success', "Pengajuan SIP No. {$sipRecord->no_sip} milik {$sipRecord->dokter->nama_lengkap} BERHASIL DISETUJUI dan telah diaktifkan.")
+            ->with('wa_notification', $waResult ? [
+                'type' => 'approved',
+                'doctor_name' => $sipRecord->dokter->nama_lengkap,
+                'no_sip' => $sipRecord->no_sip,
+                'phone' => $waResult['phone'],
+                'status' => $waResult['status'],
+                'message' => $waResult['message'],
+                'wa_me_url' => $waResult['wa_me_url'],
+            ] : null);
     }
 
     public function reject(Request $request, SipRecord $sipRecord, WhatsAppService $waService): RedirectResponse
@@ -55,36 +126,37 @@ class VerifikasiSipController extends Controller
         $request->validate([
             'alasan_penolakan' => ['required', 'string', 'min:5'],
         ], [
-            'alasan_penolakan.required' => 'Wajib memberikan alasan atau catatan perbaikan berkas untuk dokter.',
+            'alasan_penolakan.required' => 'Wajib menuliskan alasan penolakan atau catatan perbaikan berkas untuk dokter.',
+            'alasan_penolakan.min' => 'Alasan penolakan minimal terdiri dari 5 karakter agar jelas bagi dokter.',
         ]);
 
-        $catatan = $request->input('alasan_penolakan');
+        $catatan = trim((string) $request->input('alasan_penolakan'));
 
-        // Status kembali dihitung berdasarkan sisa hari dari SIP yang ada
+        // Tandai berkas ditolak oleh verifikator SDM
         $sipRecord->is_verified = false;
         $sipRecord->verified_by = auth()->id();
         $sipRecord->verified_at = Carbon::now();
         $sipRecord->catatan_verifikasi = $catatan;
-
-        // Reset status to calculated days
-        $days = $sipRecord->sisa_hari;
-        if ($days > 90) {
-            $sipRecord->status = 'aktif';
-        } elseif ($days >= 61) {
-            $sipRecord->status = 'warning';
-        } elseif ($days >= 31) {
-            $sipRecord->status = 'mendesak';
-        } else {
-            $sipRecord->status = 'expired';
-        }
-
+        $sipRecord->status = 'expired';
         $sipRecord->save();
 
-        // Kirim notifikasi WA penolakan beserta alasan
+        // Kirim notifikasi WA penolakan beserta alasan secara otomatis melalui WA Gateway
+        $waResult = null;
         if ($sipRecord->dokter && $sipRecord->dokter->no_whatsapp) {
-            $waService->sendVerificationRejected($sipRecord, $catatan);
+            $waResult = $waService->sendVerificationRejected($sipRecord, $catatan);
         }
 
-        return redirect()->route('verifikasi.index')->with('warning', "Pengajuan SIP No. {$sipRecord->no_sip} telah DITOLAK. Pesan revisi telah dikirimkan ke WhatsApp dokter.");
+        return redirect()->route('verifikasi.index')
+            ->with('warning', "Pengajuan SIP No. {$sipRecord->no_sip} milik {$sipRecord->dokter->nama_lengkap} telah DITOLAK. Catatan perbaikan berkas telah dikirimkan ke WhatsApp dokter.")
+            ->with('wa_notification', $waResult ? [
+                'type' => 'rejected',
+                'doctor_name' => $sipRecord->dokter->nama_lengkap,
+                'no_sip' => $sipRecord->no_sip,
+                'alasan' => $catatan,
+                'phone' => $waResult['phone'],
+                'status' => $waResult['status'],
+                'message' => $waResult['message'],
+                'wa_me_url' => $waResult['wa_me_url'],
+            ] : null);
     }
 }

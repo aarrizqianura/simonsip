@@ -46,6 +46,29 @@
             </div>
         </div>
     </div>
+    @elseif(!empty($rejectedSip))
+    <div class="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 font-bold">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <div class="font-bold text-sm">Pengajuan SIP Memerlukan Perbaikan / Revisi Berkas</div>
+                <div class="text-xs text-rose-800 mt-0.5">
+                    Pengajuan SIP No. <strong>{{ $rejectedSip->no_sip }}</strong> (Praktik Ke-{{ $rejectedSip->tempat_praktik_ke }}) belum dapat disetujui oleh Bagian SDM.
+                </div>
+                @if($rejectedSip->catatan_verifikasi)
+                    <div class="mt-2 p-2.5 rounded-xl bg-white/90 border border-rose-200 text-xs text-rose-900">
+                        <strong>Alasan Penolakan SDM:</strong> "{{ $rejectedSip->catatan_verifikasi }}"
+                    </div>
+                @endif
+            </div>
+        </div>
+        <a href="{{ route('dokter.renewal') }}" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition shrink-0 inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-upload"></i>
+            <span>Unggah Ulang Berkas</span>
+        </a>
+    </div>
     @endif
 
     <!-- Countdown & Legal Status Hero Cards -->
